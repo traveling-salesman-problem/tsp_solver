@@ -1,0 +1,17 @@
+{
+  "files.exclude": {
+    // git related files
+    "**/.git": true,
+    // macOS related files
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    // build related files
+    "target": true,
+    "Cargo.lock": true,
+    // vscode related files
+    ".vscode": true
+  }
+}
