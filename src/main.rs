@@ -1,24 +1,25 @@
-// import useful stuff
 use std::fs::File;
 use std::fs::remove_file;
 use std::io::Write;
 use std::path::Path;
+use std::time::Instant;
 use clap::Parser;
 
-// import other files
-mod points_dataset;
-mod solution;
+mod dataset;
+mod individual;
 mod generation;
+mod utils;
 
-use points_dataset::PointsDataset;
+use dataset::Dataset;
 use generation::Generation;
+use utils::ThousandsDisplayPolicy;
 
 // create a command line arguments parser
 #[derive(Parser)]
 #[clap(author, version, about)]
 struct ArgsParser {
   // dataset filename
-  #[clap(short='d', long, default_value="dataset.json", help="The url of the dataset (in JSON format)")]
+  #[clap(short='d', long, default_value="datasets/demo/demo.json", help="The url of the dataset (in JSON format)")]
   dataset_filename: String,
   
   // logs filename
@@ -26,7 +27,7 @@ struct ArgsParser {
   logs_filename: String,
 
   // number of generations
-  #[clap(short='g', long, default_value="100", help="The number of generations to run")]
+  #[clap(short='g', long, default_value="10", help="The number of generations to run")]
   number_of_generations: usize,
 
   // population size
@@ -65,10 +66,10 @@ fn main() {
   let args = ArgsParser::parse();
 
   // load the dataset into RAM
-  let points_dataset = PointsDataset::from_file(&args.dataset_filename);
+  let dataset = Dataset::from_file(&args.dataset_filename);
 
   // log the number of valid solutions to the dataset
-  println!("{}! = {:.3e} valid solutions in the dataset\n", points_dataset.points_count, floaty_factorial(points_dataset.points_count));
+  println!("{}! = {:.3e} valid solutions to the dataset", dataset.size, floaty_factorial(dataset.size));
 
   // reset the logs
   if (Path::new(&args.logs_filename)).exists() {
@@ -77,29 +78,36 @@ fn main() {
   let mut log_file = File::create(&args.logs_filename).expect("Unable to create the log file");
 
   // log the dataset
-  write!(log_file, "{}\n", points_dataset).expect("Unable to write to the log file");
+  write!(log_file, "{}\n", dataset).expect("Unable to write to the log file");
   
   // create a random number generator
   let mut rng = rand::thread_rng();
+
+  // start stopwatch
+  let stopwatch = Instant::now();
   
   // create a generation & log it
-  let mut generation = Generation::new(1, args.number_of_generations, args.population_size, &points_dataset, &mut rng);
-  write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+  let mut generation = Generation::new(1, args.number_of_generations, args.population_size, &dataset, &mut rng);
+  // write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
 
   // evolve through generations
   for _ in 1..args.number_of_generations {
     generation = generation.evolve(&mut rng, args.neighbors_distance_lookup, args.best_out_of);
-    if generation.generation_number % args.display_interval == 0 {
-      write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
-    }
+    // if generation.id % args.display_interval == 0 {
+      // write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+    // }
   }
+
+  // stop stopwatch
+  let execution_duration = stopwatch.elapsed();
+  println!("search time : {}s\n", (execution_duration.as_millis() as f64 / 1000.0).thousands());
 
   // display the best solution
   let mut best_solution = String::new();
 
-  best_solution.push_str(&format!("┌─ BEST SOLUTION {:─>gen_padding$}─┐\n", "", gen_padding=generation.population[0].solution_display_width-15).as_str());
+  best_solution.push_str(&format!("┌─ BEST SOLUTION {:─>gen_padding$}─┐\n", "", gen_padding=generation.population[0].individual_display_width-15).as_str());
   best_solution.push_str(&format!("│ {} │\n", generation.population[0]));
-  best_solution.push_str(&format!("└─{:─>gen_padding$}─┘\n", "", gen_padding=generation.population[0].solution_display_width));
+  best_solution.push_str(&format!("└─{:─>gen_padding$}─┘\n", "", gen_padding=generation.population[0].individual_display_width));
 
   write!(log_file, "{}", best_solution).expect("Unable to write to the log file");
   println!("{}", best_solution);
