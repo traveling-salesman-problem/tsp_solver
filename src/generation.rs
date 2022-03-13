@@ -12,35 +12,34 @@ pub struct Generation<'a> {
   pub number_of_generations_display_width: usize,
   pub population_size: usize,
   pub population: Vec<Individual<'a>>,
-  pub selection_weights: Vec<f64>,
-  pub selection_range: f64
+  pub fitnesses: Vec<f64>
 }
 
 // implement the Generation struct
 impl<'a> Generation<'a> {
-  // function that computes the weight for selecting a parent for crossover
-  fn compute_selection_weights(population: &Vec<Individual<'a>>, population_size: usize) -> (Vec<f64>, f64) {
+  // function that computes the fitnesses of each individual in the population
+  fn compute_fitnesses(population: &Vec<Individual<'a>>, population_size: usize) -> Vec<f64> {
     // find min and max scores
-    let max = population.last().expect("Unable to get last element of population").length();
-    let min = population.first().expect("Unable to get first element of population").length();
+    let max = population.last().expect("Unable to get last element of population").length;
+    let min = population.first().expect("Unable to get first element of population").length;
 
     // compute the score of each individual
     let delta = max - min;
     let delta = delta * delta / population_size as f64;
 
-    let mut selection_weights: Vec<f64> = population.iter()
-      .map(|ind| max - ind.length())
+    let mut fitnesses: Vec<f64> = population.iter()
+      .map(|ind| max - ind.length)
       .map(|length| length*length + delta)
       .collect();
     
     // make the mapping progressive
     for index in 1..population_size {
-      selection_weights[index] += selection_weights[index-1];
+      fitnesses[index] += fitnesses[index-1];
     }
     
-    // return results
-    let length = selection_weights[population_size-1];
-    (selection_weights, length)
+    // return results scaled to [0, 1]
+    let length = fitnesses[population_size-1];
+    fitnesses.iter().map(|fitness| fitness/length).collect()
   }
 
   // returns a new instance of the Generation struct
@@ -57,22 +56,21 @@ impl<'a> Generation<'a> {
     population.sort_by(|ind_1, ind_2| ind_1.partial_cmp(ind_2).expect("Unable to compare individuals while creating a new generation"));
 
     // create the struct
-    let (selection_weights, selection_range) = Generation::compute_selection_weights(&population, population_size);
+    let fitnesses = Generation::compute_fitnesses(&population, population_size);
     Self {
       id,
       number_of_generations,
       number_of_generations_display_width: number_of_generations.separate_with_commas().len(),
       population,
       population_size,
-      selection_weights,
-      selection_range
+      fitnesses
     }
   }
 
   // select a parent for crossover depending on the selection weights
   pub fn select_parent(&self, rng: &mut ThreadRng) -> &Individual<'a> {
-    let pointer = rng.gen_range(0.0..self.selection_range);
-    let selected_parent_index = self.selection_weights.iter()
+    let pointer = rng.gen_range(0f64..1f64);
+    let selected_parent_index = self.fitnesses.iter()
       .position(|&weight| pointer <= weight)
       .expect("Unable to find parent");
     &self.population[selected_parent_index]
@@ -98,8 +96,7 @@ impl<'a> Generation<'a> {
       number_of_generations_display_width: previous_generation.number_of_generations_display_width,
       population_size: previous_generation.population_size,
       population: Vec::new(),
-      selection_weights: Vec::new(),
-      selection_range: 0.0
+      fitnesses: Vec::new()
     }
   }
 
@@ -110,12 +107,20 @@ impl<'a> Generation<'a> {
 
     // populate the new generation
     for _ in 0..self.population_size {
-      // select a parent
-      let parent = self.select_parent(rng);
+      let mut child;
 
-      // create a child from this parent
-      let mut child = parent.clone();
-      child = child.mutate(rng, neighbors_distance_lookup, best_out_of);
+      if self.id >= 20 {
+        child = self.select_parent(rng).mutate(rng, neighbors_distance_lookup, best_out_of);
+      } else {
+        // select parents
+        let parent1 = self.select_parent(rng);
+        let parent2 = self.select_parent(rng);
+  
+        // create a child from this parents
+        child = Individual::crossover(parent1, parent2, rng);
+        // mutate the child
+        child = child.mutate(rng, neighbors_distance_lookup, best_out_of);
+      }
 
       // add the child to the new generation
       new_generation.population.push(child);
@@ -125,7 +130,7 @@ impl<'a> Generation<'a> {
     new_generation.population.sort_by(|sol_1, sol_2| sol_1.partial_cmp(sol_2).expect("Unable to compare solutions while creating a new generation"));
 
     // compute the selection weights
-    (new_generation.selection_weights, new_generation.selection_range) = Generation::compute_selection_weights(
+    new_generation.fitnesses = Generation::compute_fitnesses(
       &new_generation.population,
       new_generation.population_size
     );

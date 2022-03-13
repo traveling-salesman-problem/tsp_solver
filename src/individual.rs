@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::cmp::{Ordering};
 use rand::prelude::*;
-use thousands::Separable;
-use crate::dataset::Dataset;
+use crate::dataset::{Dataset,Matrix};
+use crate::utils::ThousandsDisplayPolicy;
 
 // definition of the Individual struct
 // it represents a valid solution to the problem
@@ -10,24 +10,24 @@ pub struct Individual<'a>  {
   pub size: usize,
   pub nodes: Vec<usize>,
   pub dataset: &'a Dataset,
-  length: Option<f64>,
+  pub length: f64,
   pub individual_display_width: usize
 }
 
 // implement the Individual struct
 impl<'a> Individual<'a> {
   // update the length of the individual
-  pub fn update_length(&mut self) {
+  fn compute_length(distance_matrix: &Matrix, nodes: &Vec<usize>, size: usize) -> f64 {
     // define a variable that will hold the total length of the individual
     let mut total_length = 0.0;
 
     // for each node, compute the distance to the next
-    for node_index in 0..self.size - 1 {
-      total_length += self.dataset.distance_matrix[self.nodes[node_index]][self.nodes[node_index + 1]];
+    for node_index in 0..size - 1 {
+      total_length += distance_matrix.get(nodes[node_index], nodes[node_index + 1]);
     }
     
-    // save the length for later
-    self.length = Some(total_length);
+    // return the computed length
+    total_length
   }
 
   // returns a new random instance of the individual struct
@@ -38,49 +38,111 @@ impl<'a> Individual<'a> {
     // shuffle the order in which the nodes are visited
     nodes.shuffle(rng);
 
+    // compute the length of the individual
+    let length = Self::compute_length(&dataset.distance_matrix, &nodes, dataset.size);
+
     // create the individual
-    let mut individual = Self {
+    Self {
       size: dataset.size,
       nodes,
       dataset,
-      length: None,
+      length,
       individual_display_width: dataset.size * (dataset.longest_label_display_width + 4) - 1 + dataset.longest_path_display_width
-    };
-    individual.update_length();
-    individual
-  }
-
-  // // returns an empty instance of the Solution struct
-  // pub fn new_empty (nodes_dataset: &'a nodesDataset) -> Solution<'a> {
-  //   Solution { nodes: vec![], nodes_dataset, length: None }
-  // }
-
-  // // returns an empty instance of the Solution struct generated from a parent solution
-  // pub fn new_empty_from_parent (parent_solution: &'a Solution) -> Solution<'a> {
-  //   Solution::new_empty(parent_solution.nodes_dataset)
-  // }
-
-  // retrieve the length of the individual
-  pub fn length(&self) -> f64 {
-    match self.length {
-      Some(length) => length,
-      None => panic!("The length of the individual has not been computed yet")
     }
   }
 
-  // // returns a new instance of the Solution struct generated from two parent solutions
-  // pub fn crossover(parent_1: &Solution<'a>, parent_2: &Solution<'a>) -> Solution<'a> {
-  //   // create a new empty solution
-  //   let mut child = Solution::new_empty_from_parent(parent_1);
+  // returns an empty instance of the Solution struct generated from a parent solution
+  pub fn new_empty_from_parent (parent: &Self) -> Self {
+    Self {
+      size: parent.size,
+      nodes: vec![0; parent.size],
+      dataset: parent.dataset,
+      length: 0.0,
+      individual_display_width: parent.individual_display_width
+    }
+  }
 
-  //   // crossover algorithm
-  //   for i in 0..child.nodes_dataset.nodes_count {
-  //     child.nodes.push(parent_1.nodes[i]);
-  //   }
+  // returns a new instance of the Solution struct generated from two parent solutions
+  pub fn crossover(parent1: &Self, parent2: &Self, rng: &mut ThreadRng) -> Self {
+    // build node map from parents
+    let mut parent1_nodemap: Vec<Option<usize>> = vec![None; parent1.size];
+    for (index, &node) in parent1.nodes[..parent1.size-1].iter().enumerate() {
+      parent1_nodemap[node] = Some(parent1.nodes[index+1]);
+    }
+    let mut parent2_nodemap: Vec<Option<usize>> = vec![None; parent2.size];
+    for (index, &node) in parent2.nodes[..parent2.size-1].iter().enumerate() {
+      parent2_nodemap[node] = Some(parent2.nodes[index+1]);
+    }
 
-  //   // return the newly created child
-  //   child
-  // }
+    // create a new empty solution
+    let mut child = Self::new_empty_from_parent(&parent1);
+
+    // append a first city
+    child.nodes[0] = parent1.nodes[0];
+
+    // crossover algorithm
+    let mut remaining_nodes: Vec<bool> = vec![true; child.size];
+    remaining_nodes[child.nodes[0]] = false;
+
+    for i in 1..child.size {
+      let last_node = child.nodes[i-1];
+
+      let parent1_next = parent1_nodemap[last_node];
+      let parent2_next = parent2_nodemap[last_node];
+      
+      fn find_next<'a>(child: &mut Individual<'a>, i:usize, last_node: usize, remaining_nodes: &mut Vec<bool>) {
+        for &potential_next_node in child.dataset.nodes_neighbors[last_node].iter() {
+          if potential_next_node != last_node {
+            if remaining_nodes[potential_next_node] {
+              remaining_nodes[potential_next_node] = false;
+              child.nodes[i] = potential_next_node;
+              return;
+            }
+          }
+        }
+      }
+
+      fn try_set_node<'a>(child: &mut Individual<'a>, i:usize, last_node: usize, target_node: usize, remaining_nodes: &mut Vec<bool>) {
+        if remaining_nodes[target_node] {
+          remaining_nodes[target_node] = false;
+          child.nodes[i] = target_node;
+        } else {
+          find_next(child, i, last_node, remaining_nodes);
+        }
+      }
+
+      fn try_set_node_2<'a>(child: &mut Individual<'a>, i:usize, last_node: usize, target_node_1: usize, target_node_2: usize, remaining_nodes: &mut Vec<bool>) {
+        if remaining_nodes[target_node_1] {
+          remaining_nodes[target_node_1] = false;
+          child.nodes[i] = target_node_1;
+        } else if remaining_nodes[target_node_2] {
+          remaining_nodes[target_node_2] = false;
+          child.nodes[i] = target_node_2;
+        } else {
+          find_next(child, i, last_node, remaining_nodes);
+        }
+      }
+
+      match (parent1_next, parent2_next) {
+        (Some(p1_next), Some(p2_next)) => {
+          if child.dataset.distance_matrix.get(last_node,p1_next) < child.dataset.distance_matrix.get(last_node,p2_next) {
+            try_set_node_2(&mut child, i, last_node, p1_next, p2_next, &mut remaining_nodes);
+          } else {
+            try_set_node_2(&mut child, i, last_node, p2_next, p1_next, &mut remaining_nodes);
+          }
+        },
+        (Some(p1_next), None) => try_set_node(&mut child, i, last_node, p1_next, &mut remaining_nodes),
+        (None, Some(p2_next)) => try_set_node(&mut child, i, last_node, p2_next, &mut remaining_nodes),
+        (None, None) => find_next(&mut child, i, last_node, &mut remaining_nodes)
+      }
+    }
+
+    // update child's length
+    child.length = Self::compute_length(&child.dataset.distance_matrix, &child.nodes, child.size);
+
+    // return the newly created child
+    child
+  }
 
   // mutate randomly the individual
   pub fn mutate (&self, rng: &mut ThreadRng, neighbors_distance_lookup: usize, best_out_of: usize) -> Self {
@@ -116,10 +178,10 @@ impl<'a> Individual<'a> {
       child.nodes[index_2] = node_1;
 
       // update the length
-      child.update_length();
+      child.length = Self::compute_length(&child.dataset.distance_matrix, &child.nodes, child.size);
 
       // save the child if it is the best individual so far
-      if best_child.is_none() || child.length() < best_child.as_ref().expect("Previous best individual not found").length() {
+      if best_child.is_none() || child.length < best_child.as_ref().expect("Previous best individual not found").length {
         best_child = Some(child);
       }
     }
@@ -132,13 +194,13 @@ impl<'a> Individual<'a> {
 // the comparison is based on the length of the individual
 impl<'a> PartialEq for Individual<'a> {
   fn eq (&self, other: &Self) -> bool {
-    self.length() == other.length()
+    self.length == other.length
   }
 }
 
 impl<'a> PartialOrd for Individual<'a> {
   fn partial_cmp (&self, other: &Self) -> Option<Ordering> {
-    self.length().partial_cmp(&other.length())
+    self.length.partial_cmp(&other.length)
   }
 }
 
@@ -170,7 +232,7 @@ impl<'a> Display for Individual<'a> {
     }
 
     // add the length of the individual and a new line
-    result.push_str(&format!(" · {:>width$}", self.length().separate_with_commas(), width = self.dataset.longest_path_display_width));
+    result.push_str(&format!(" · {:>width$}", self.length.thousands(), width = self.dataset.longest_path_display_width));
 
     // write the string to the formatter
     write!(f, "{}", result)

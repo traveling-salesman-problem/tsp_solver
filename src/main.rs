@@ -31,7 +31,7 @@ struct ArgsParser {
   number_of_generations: usize,
 
   // population size
-  #[clap(short='p', long, default_value="200", help="The number of individuals in each generation")]
+  #[clap(short='p', long, default_value="100", help="The number of individuals in each generation")]
   population_size: usize,
 
   // neighbors distance lookup
@@ -43,21 +43,18 @@ struct ArgsParser {
   best_out_of: usize,
 
   // display interval
-  #[clap(short='i', long, default_value="20", help="The number of generations between each display (if the number is too small it will slow down the algorithm)")]
+  #[clap(short='i', long, default_value="2", help="The number of generations between each display (if the number is too small it will slow down the algorithm)")]
   display_interval: usize,
 
   // generations logging
-  // #[clap(short='L', long, default_value=True, help="Whether to log each generation")]
-  // log_generations: bool,
+  #[clap(short='N', long, help="Whether to log each generation")]
+  no_log: bool,
 }
 
-// compute the factorial of a number
-fn floaty_factorial(n: usize) -> f64 {
-  let mut result = 1.0;
-  for i in 1..n+1 {
-    result *= i as f64;
-  }
-  result
+// compute the factorial of a number as a float
+fn ramanujan_factorial_log(n: usize) -> usize {
+  let n = n as f64;
+  (0.0f64).max(((n.ln() - 1.0) * n) / (10.0f64).ln()).ceil() as usize
 }
 
 // entry of the program
@@ -69,7 +66,7 @@ fn main() {
   let dataset = Dataset::from_file(&args.dataset_filename);
 
   // log the number of valid solutions to the dataset
-  println!("{}! = {:.3e} valid solutions to the dataset", dataset.size, floaty_factorial(dataset.size));
+  println!("{}! ~= 10^{} valid solutions to the dataset", dataset.size, ramanujan_factorial_log(dataset.size).thousands());
 
   // reset the logs
   if (Path::new(&args.logs_filename)).exists() {
@@ -78,7 +75,7 @@ fn main() {
   let mut log_file = File::create(&args.logs_filename).expect("Unable to create the log file");
 
   // log the dataset
-  write!(log_file, "{}\n", dataset).expect("Unable to write to the log file");
+  // write!(log_file, "{}\n", dataset).expect("Unable to write to the log file");
   
   // create a random number generator
   let mut rng = rand::thread_rng();
@@ -88,14 +85,18 @@ fn main() {
   
   // create a generation & log it
   let mut generation = Generation::new(1, args.number_of_generations, args.population_size, &dataset, &mut rng);
-  // write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+  if !args.no_log {
+    write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+  }
 
   // evolve through generations
   for _ in 1..args.number_of_generations {
     generation = generation.evolve(&mut rng, args.neighbors_distance_lookup, args.best_out_of);
-    // if generation.id % args.display_interval == 0 {
-      // write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
-    // }
+    if !args.no_log {
+      if generation.id % args.display_interval == 0 {
+        write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+      }
+    }
   }
 
   // stop stopwatch
@@ -105,9 +106,9 @@ fn main() {
   // display the best solution
   let mut best_solution = String::new();
 
-  best_solution.push_str(&format!("┌─ BEST SOLUTION {:─>gen_padding$}─┐\n", "", gen_padding=generation.population[0].individual_display_width-15).as_str());
-  best_solution.push_str(&format!("│ {} │\n", generation.population[0]));
-  best_solution.push_str(&format!("└─{:─>gen_padding$}─┘\n", "", gen_padding=generation.population[0].individual_display_width));
+  // best_solution.push_str(&format!("┌─ BEST SOLUTION {:─>gen_padding$}─┐\n", "", gen_padding=generation.population[0].individual_display_width-15).as_str());
+  best_solution.push_str(&format!("{}\n", generation.population[0]));
+  // best_solution.push_str(&format!("└─{:─>gen_padding$}─┘\n", "", gen_padding=generation.population[0].individual_display_width));
 
   write!(log_file, "{}", best_solution).expect("Unable to write to the log file");
   println!("{}", best_solution);
