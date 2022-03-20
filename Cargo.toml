@@ -1,6 +1,6 @@
 [package]
 name = "tsp_solver"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Ferdinand Keller <ferdinand.keller@edu.devinci.fr>"]
 edition = "2021"
 description = "This program will try to find good solutions to the traveling salesman problem using genetic algorithms."
