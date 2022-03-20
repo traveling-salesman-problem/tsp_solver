@@ -43,7 +43,7 @@ struct ArgsParser {
   best_out_of: usize,
 
   // display interval
-  #[clap(short='i', long, default_value="2", help="The number of generations between each display (if the number is too small it will slow down the algorithm)")]
+  #[clap(short='i', long, default_value="1", help="The number of generations between each display (if the number is too small it will slow down the algorithm)")]
   display_interval: usize,
 
   // generations logging
