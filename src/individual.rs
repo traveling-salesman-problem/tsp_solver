@@ -63,7 +63,7 @@ impl<'a> Individual<'a> {
   }
 
   // returns a new instance of the Solution struct generated from two parent solutions
-  pub fn crossover(parent1: &Self, parent2: &Self, rng: &mut ThreadRng) -> Self {
+  pub fn crossover(parent1: &Self, parent2: &Self) -> Self {
     // build node map from parents
     let mut parent1_nodemap: Vec<Option<usize>> = vec![None; parent1.size];
     for (index, &node) in parent1.nodes[..parent1.size-1].iter().enumerate() {
@@ -149,10 +149,7 @@ impl<'a> Individual<'a> {
     // we apply the mutation multiple times and only keep the best one
     let mut best_child: Option<Self> = None;
 
-    for _ in 0..best_out_of {
-      // let current individual
-      let mut child = self.clone();
-
+    fn m(child: &mut Individual, neighbors_distance_lookup: usize, rng: &mut ThreadRng) {
       // apply inversion mutation
       let mut index_1 = rng.gen_range(0..child.size);
       let mut index_2 = rng.gen_range(0..child.size);
@@ -176,6 +173,19 @@ impl<'a> Individual<'a> {
 
       child.nodes[index_1] = node_2;
       child.nodes[index_2] = node_1;
+    }
+
+    for _ in 0..best_out_of {
+      // create a new individual
+      let mut child = self.clone();
+
+      // mutate it randomly un unknown number of times
+      loop {
+        m(&mut child, neighbors_distance_lookup, rng);
+        if rng.gen_range(0..2) == 0 {
+          break;
+        }
+      }
 
       // update the length
       child.length = Self::compute_length(&child.dataset.distance_matrix, &child.nodes, child.size);

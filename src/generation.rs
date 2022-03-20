@@ -76,18 +76,6 @@ impl<'a> Generation<'a> {
     &self.population[selected_parent_index]
   }
 
-  // // returns a new empty generation
-  // pub fn new_empty(generation_number: usize, population_size: usize, number_of_generations: usize) -> Generation<'a> {
-  //   // create the struct
-  //   Generation {
-  //     generation_number,
-  //     number_of_generations,
-  //     number_of_generations_width: number_of_generations.separate_with_commas().len(),
-  //     population_size,
-  //     population: Vec::new()
-  //   }
-  // }
-
   // returns a new empty generation from a previous generation
   pub fn new_empty_from_previous(previous_generation: &Self) -> Self {
     Self {
@@ -109,7 +97,7 @@ impl<'a> Generation<'a> {
     for _ in 0..self.population_size {
       let mut child;
 
-      if self.id >= 20 {
+      if self.id >= 10 {
         child = self.select_parent(rng).mutate(rng, neighbors_distance_lookup, best_out_of);
       } else {
         // select parents
@@ -117,7 +105,7 @@ impl<'a> Generation<'a> {
         let parent2 = self.select_parent(rng);
   
         // create a child from this parents
-        child = Individual::crossover(parent1, parent2, rng);
+        child = Individual::crossover(parent1, parent2);
         // mutate the child
         child = child.mutate(rng, neighbors_distance_lookup, best_out_of);
       }

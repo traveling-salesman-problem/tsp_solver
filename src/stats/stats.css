@@ -1,0 +1,88 @@
+:root {
+  font-size: 10px;
+}
+
+* {
+  font-family: Rubik, sans-serif;
+  letter-spacing: .03em;
+  word-spacing: .8em;
+  line-height: 1.5em;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+*::selection {
+  background-color: black;
+  color: white;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: hsl(250, 20%, 98%);
+}
+
+.content {
+  max-width: 900px;
+  padding: 2em;
+}
+
+footer {
+  font-weight: 800;
+  font-size: 1.2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  letter-spacing: -0.01em;
+  word-spacing: .3em;
+  text-transform: uppercase;
+}
+
+.generation {
+  width: 100%;
+  height: 10em;
+  background-color: white;
+  margin-bottom: 3em;
+  border-radius: .8em;
+  box-shadow: 0 0 1em rgba(0, 0, 0, .02);
+  transition: box-shadow .3s ease-in-out;
+  padding: .8em;
+  position: relative;
+}
+.generation:hover {
+  box-shadow: 0 .3em 1.5em rgba(0, 0, 0, .05);
+  cursor: pointer;
+}
+.generation .id {
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+  position: absolute;
+  bottom: .6em;
+  right: 1.2em;  
+}
+
+h1 {
+  font-size: 5rem;
+  line-height: 1em;
+  text-align: center;
+  margin-bottom: 2em;
+  text-transform: uppercase;
+}
+
+p, div, span {
+  font-size: 1.7rem;
+}
+p, span {
+  user-select: text;
+}
+p {
+  text-indent: 3em;
+}
+p:not(:last-child) {
+  margin-bottom: 3em;
+}

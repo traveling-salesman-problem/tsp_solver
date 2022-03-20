@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::fs::read_to_string;
-use std::fmt::Display;
 use std::collections::HashSet;
 use serde::Deserialize;
 use crate::utils::{get_max_display_width,get_max_display_width_thousands_2d,ThousandsDisplayPolicy};
@@ -40,7 +39,7 @@ impl Matrix {
   pub fn is_square(&self) -> bool {
     match self {
       Self::Distances(matrix) => matrix.len() == matrix[0].len(),
-      Self::Locations(matrix) => true
+      Self::Locations(_) => true
     }
   }
 
@@ -192,7 +191,8 @@ impl Dataset {
 
     // create the matrix object
     let matrix = {
-      if unsafe_dataset.locations.len() == 0 {
+      let size = unsafe_dataset.locations.len();
+      if size == 0 {
         Matrix::Distances(unsafe_dataset.distance_matrix)
       } else {
         Matrix::Locations(unsafe_dataset.locations)

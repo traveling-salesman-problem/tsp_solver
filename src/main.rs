@@ -52,9 +52,11 @@ struct ArgsParser {
 }
 
 // compute the factorial of a number as a float
-fn ramanujan_factorial_log(n: usize) -> usize {
+// Ramanujan showed that ln(n!) ~= n(ln(n) − 1)
+// so log10(n!) ~= n(ln(n) - 1) / ln(10)
+fn ramanujan_factorial_log10(n: usize) -> usize {
   let n = n as f64;
-  (0.0f64).max(((n.ln() - 1.0) * n) / (10.0f64).ln()).ceil() as usize
+  (0.0f64).max((n * (n.ln() - 1.0)) / (10.0f64).ln()).ceil() as usize
 }
 
 // entry of the program
@@ -66,13 +68,16 @@ fn main() {
   let dataset = Dataset::from_file(&args.dataset_filename);
 
   // log the number of valid solutions to the dataset
-  println!("{}! ~= 10^{} valid solutions to the dataset", dataset.size, ramanujan_factorial_log(dataset.size).thousands());
+  println!("{}! ~= 10^{} valid solutions to the dataset", dataset.size, ramanujan_factorial_log10(dataset.size).thousands());
 
-  // reset the logs
-  if (Path::new(&args.logs_filename)).exists() {
-    remove_file(&args.logs_filename).expect("Unable to remove the log file");
+  // reset the logs if wanted
+  let mut log_file = None;
+  if !args.no_log {
+    if (Path::new(&args.logs_filename)).exists() {
+      remove_file(&args.logs_filename).expect("Unable to remove the log file");
+    }
+    log_file = Some(File::create(&args.logs_filename).expect("Unable to create the log file"));
   }
-  let mut log_file = File::create(&args.logs_filename).expect("Unable to create the log file");
 
   // log the dataset
   // write!(log_file, "{}\n", dataset).expect("Unable to write to the log file");
@@ -86,7 +91,7 @@ fn main() {
   // create a generation & log it
   let mut generation = Generation::new(1, args.number_of_generations, args.population_size, &dataset, &mut rng);
   if !args.no_log {
-    write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+    write!(log_file.as_ref().unwrap(), "{}\n", generation).expect("Unable to write to the log file");
   }
 
   // evolve through generations
@@ -94,7 +99,7 @@ fn main() {
     generation = generation.evolve(&mut rng, args.neighbors_distance_lookup, args.best_out_of);
     if !args.no_log {
       if generation.id % args.display_interval == 0 {
-        write!(log_file, "{}\n", generation).expect("Unable to write to the log file");
+        write!(log_file.as_ref().unwrap(), "{}\n", generation).expect("Unable to write to the log file");
       }
     }
   }
@@ -105,30 +110,12 @@ fn main() {
 
   // display the best solution
   let mut best_solution = String::new();
-
   // best_solution.push_str(&format!("┌─ BEST SOLUTION {:─>gen_padding$}─┐\n", "", gen_padding=generation.population[0].individual_display_width-15).as_str());
   best_solution.push_str(&format!("{}\n", generation.population[0]));
   // best_solution.push_str(&format!("└─{:─>gen_padding$}─┘\n", "", gen_padding=generation.population[0].individual_display_width));
 
-  write!(log_file, "{}", best_solution).expect("Unable to write to the log file");
+  if !args.no_log {
+    write!(log_file.as_ref().unwrap(), "{}", best_solution).expect("Unable to write to the log file");
+  }
   println!("{}", best_solution);
 }
-
-// fn box_stringable(data: Box<dyn ToString>) -> String {
-//   box_array(vec![data])
-// }
-
-// fn box_array(data: Vec<Box<dyn ToString>>) -> String {
-//   let mut result = String::new();
-//   let mut rows_as_strings: Vec<String> = Vec::new();
-//   for row in data {
-//     rows_as_strings.push(row.to_string());
-//   }
-//   let max_row_length = rows_as_strings.iter().fold(0, |current_max, row| current_max.max(row.len()));
-//   result.push_str("hello\n");
-//   for string in rows_as_strings {
-//     result.push_str(&string);
-//   }
-//   result.push_str("world\n");
-//   result
-// }
