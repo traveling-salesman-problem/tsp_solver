@@ -1,6 +1,6 @@
 {
-  "points_labels": [ "Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Beziers", "Narbone" ],
-  "points_distances": [
+  "labels": [ "Par", "Mar", "Lyo", "Tou", "Nic", "Bez", "Nar" ],
+  "distance_matrix": [
     [ 0, 775, 466, 678, 932, 123, 431 ],
     [ 775, 0, 314, 404, 199, 4224, 123 ],
     [ 466, 314, 0, 538, 471, 334, 134 ],
@@ -8,5 +8,6 @@
     [ 932, 199, 471, 561, 0, 76, 7567 ],
     [ 123, 4224, 334, 467, 76, 0, 127 ],
     [ 431, 123, 134, 467, 7567, 127, 0 ]
-  ]
+  ],
+  "locations": []
 }
